@@ -19,11 +19,16 @@ library(foreign)
 library(stringi)
 library(readxl)
 library(data.table)
+library(RColorBrewer)
+library(forcats)
+library(knitr)
 
 setwd("~/SouthAfrica/GIS/Shapefile")
 
   df_fc16 <- read.dbf("Facility_Clinical_Cascade_2016.dbf")
   df_fc17 <- read.dbf("Facility_Clinical_Cascade_2017.dbf")
+  df_latlon <- read.csv("Facility_corrected_latlon.csv") %>% 
+    na.omit()
   
   # Data frame to filter out excess clinics that are not priority ones
   df_muni <- read_excel("Priority_districts_filter.xlsx") %>% 
@@ -95,10 +100,16 @@ setwd("~/SouthAfrica/GIS/Shapefile")
                                                  ifelse(time == "Q12017", "10/01/2016", "01/01/2017"))))),
            prevFlag = ifelse(Prev > 100, 1, 0),
            priorityFlag = ifelse(SNU2 %in% df_muni$SNU2, 1, 0),
-           mobileFac = ifelse(Facility %like% "Mobile", 1, 0))
+           mobileFac = ifelse(Facility %like% "Mobile", 1, 0), 
+           locationFlag = ifelse(Longitude == 0, 1, 0))
   
   # Convert timeVar to a date,  type so ESRI reads it correctly
   df_PEPFAR$timeVar <- as.Date(df_PEPFAR$timeVar, format="%m/%d/%Y")
+  
+  # Fix facility locations that have improper latitude and longitude coordinates
+  df_PEPFAR = df_PEPFAR %>% 
+    mutate(Latitude = ifelse(Facility %in% df_latlon$Facility, df_latlon$Latitude, Latitude),
+           Longitude = ifelse(Facility %in% df_latlon$Facility, df_latlon$Longitude, Longitude))
   
   # Verify that the priority facility flag is accurate
   df_PEPFAR %>% 
@@ -111,7 +122,6 @@ setwd("~/SouthAfrica/GIS/Shapefile")
     filter(prevFlag == 0, priorityFlag == 1) %>% 
     distinct(Facility, Latitude, Longitude)
   
-
   # Check that values make sense
   summary(df_PEPFAR)
   
@@ -123,27 +133,36 @@ setwd("~/SouthAfrica/GIS/Shapefile")
               #min = min(Prev),
               #max = max(Prev),
               count = n())
-
-  df_PEPFAR %>% 
-    filter(priorityFlag == 1) %>% 
-    group_by(SNU1, timeVar) %>% 
-    summarise(count = n(),
-              count = sum(is.na(Prev))) %>% 
-    spread(timeVar, count)
   
+  
+  # Look at SNU2 averages by quarter over time
+  df_PEPFAR %>% 
+    group_by(SNU2) %>% 
+    mutate(tot_prev = sum(Pos) / sum(Test)) %>% 
+    ungroup() %>% 
+    group_by(SNU2, timeVar) %>% 
+    mutate(quart_prev = sum(Pos) / sum(Test)) %>% 
+    summarise(mean_qp = mean(quart_prev), mean_tp = mean(tot_prev)) %>% 
+    spread(timeVar, mean_qp) %>% 
+    select(-mean_tp, everything()) %>% 
+    arrange(-mean_tp) %>% 
+    kable(format.args = list(big.mark = ","), digits = 3)
+    
+
+
   # What explains the drastic drop in prevalence rates?
   df_PEPFAR %>% 
-    filter(priorityFlag == 1 & prevFlag == 0) %>% 
+    filter(priorityFlag == 1, prevFlag == 0, mobileFac == 0) %>% 
     group_by(SNU1) %>% 
-    mutate(meanSNU1 = mean(Prev)) %>% 
+    mutate(meanSNU1 = sum(Pos)/sum(Test)) %>% 
     ungroup() %>% 
     mutate(SNU1ord = fct_reorder(SNU1, -meanSNU1)) %>% 
     group_by(timeVar, SNU2, SNU1, SNU3, SNU1ord) %>% 
     summarise(mean = mean(Prev),
               n = n())%>% 
     ggplot(., aes(x = timeVar, y = mean, colour = SNU3)) +
-    geom_line(alpha = 0.35)+
-    geom_smooth(colour = "black", alpha = 0.25, size = 1) +
+    geom_line(alpha = 0.25)+
+    geom_smooth(colour = "gray70", alpha = 0.25, size = 1) +
     facet_wrap(~SNU1ord, ncol = 4) +
     theme_minimal() +
     theme(legend.position = "none") +
@@ -171,15 +190,16 @@ setwd("~/SouthAfrica/GIS/Shapefile")
   
 # Save for importing into Geodatabase table
     write.csv(df_PEPFAR, "HIV_Prevalence_long.csv")
+    
+    df_subset = df_PEPFAR %>% 
+      filter(prevFlag == 0, priorityFlag == 1, locationFlag == 0, mobileFac == 0)
+    write.csv(df_subset, "HIV_Prevalence_long_filtered.csv")
+    
+    # Compare the numbers for each cut of data to see how many facilities are filitered out
+    table(df_subset$SNU1, df_subset$timeVar)
+    table(df_PEPFAR$SNU1, df_PEPFAR$timeVar)
 
-    
 
-
-    
-      
-    
-    
-    
 
 # 
 # 
