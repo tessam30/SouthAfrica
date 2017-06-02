@@ -136,38 +136,64 @@ setwd("~/SouthAfrica/GIS/Shapefile")
   
   
   # Look at SNU2 averages by quarter over time
-  df_PEPFAR %>% 
-    group_by(SNU2) %>% 
-    mutate(tot_prev = sum(Pos) / sum(Test)) %>% 
+  df_subset = df_PEPFAR %>% 
+    filter(priorityFlag == 1, locationFlag ==0, prevFlag == 0, mobileFac == 0) %>% 
+    group_by(SNU1, timeVar) %>% 
+    mutate(prev_dist_qtr = sum(Pos) / sum(Test)) %>% 
     ungroup() %>% 
-    group_by(SNU2, timeVar) %>% 
-    mutate(quart_prev = sum(Pos) / sum(Test)) %>% 
-    summarise(mean_qp = mean(quart_prev), mean_tp = mean(tot_prev)) %>% 
-    spread(timeVar, mean_qp) %>% 
-    select(-mean_tp, everything()) %>% 
-    arrange(-mean_tp) %>% 
-    kable(format.args = list(big.mark = ","), digits = 3)
+    mutate(sortVarSNU1 = fct_reorder(SNU1, -prev_dist_qtr)) %>% 
+    group_by(SNU2) %>% 
+    mutate(tot_prev_SNU2 = sum(Pos) / sum(Test)) %>%
+    ungroup() %>% 
+    mutate(sortVarSNU2 = fct_reorder(SNU2, -tot_prev_SNU2)) %>% 
+    group_by(SNU2, timeVar, sortVarSNU2, sortVarSNU1, prev_dist_qtr) %>% 
+    mutate(quart_prev = sum(Pos) / sum(Test))
+  
+  # Show differences from SNU1 average prevalence by SNU2, sort the values as well  
+  ggplot(df_subset, aes(x = timeVar, y = quart_prev, colour = factor(SNU1))) +
+      geom_line() + scale_color_brewer(palette = "Set2")+
+      geom_line(aes(x = timeVar, y = prev_dist_qtr), colour = "gray", size = 1.25, alpha = 0.5) +
+      geom_point(aes(fill = SNU1)) +
+      facet_wrap(sortVarSNU1 ~ sortVarSNU2, nrow = 3) +
+      theme_minimal() +
+      theme(legend.position = "none", 
+            strip.text.x = element_text(size = 7),
+            axis.text.x = element_text(size = 6)) +
+      labs(title = "Gauteng Province has some of the highest HIV Prevalence rates across PEPFAR locations", 
+           subtitle = "Gray line indicates district average by quarter", 
+           ylab = "HIV Test Counts", x = "") +
+    scale_y_continuous(labels = scales::percent)
     
+
+    
+    
+    
+    # spread(timeVar, mean_qp) %>% 
+    # select(-mean_tp, everything()) %>% 
+    # arrange(-mean_tp) %>% 
+    # kable(format.args = list(big.mark = ","), digits = 3)
+   
+ 
 
 
   # What explains the drastic drop in prevalence rates?
-  df_PEPFAR %>% 
-    filter(priorityFlag == 1, prevFlag == 0, mobileFac == 0) %>% 
-    group_by(SNU1) %>% 
-    mutate(meanSNU1 = sum(Pos)/sum(Test)) %>% 
-    ungroup() %>% 
-    mutate(SNU1ord = fct_reorder(SNU1, -meanSNU1)) %>% 
-    group_by(timeVar, SNU2, SNU1, SNU3, SNU1ord) %>% 
-    summarise(mean = mean(Prev),
-              n = n())%>% 
-    ggplot(., aes(x = timeVar, y = mean, colour = SNU3)) +
-    geom_line(alpha = 0.25)+
-    geom_smooth(colour = "gray70", alpha = 0.25, size = 1) +
-    facet_wrap(~SNU1ord, ncol = 4) +
-    theme_minimal() +
-    theme(legend.position = "none") +
-    labs(title = "HIV Test counts averaged by SNU3", 
-         ylab = "HIV Test Counts", x = "")
+  # df_PEPFAR %>% 
+  #   filter(priorityFlag == 1, prevFlag == 0, mobileFac == 0) %>% 
+  #   group_by(SNU1) %>% 
+  #   mutate(meanSNU1 = sum(Pos)/sum(Test)) %>% 
+  #   ungroup() %>% 
+  #   mutate(SNU1ord = fct_reorder(SNU1, -meanSNU1)) %>% 
+  #   group_by(timeVar, SNU2, SNU1, SNU3, SNU1ord) %>% 
+  #   summarise(mean = mean(Prev),
+  #             n = n())%>% 
+  #   ggplot(., aes(x = timeVar, y = mean, colour = SNU3)) +
+  #   geom_line(alpha = 0.25)+
+  #   geom_smooth(colour = "gray70", alpha = 0.25, size = 1) +
+  #   facet_wrap(~SNU1ord, ncol = 4) +
+  #   theme_minimal() +
+  #   theme(legend.position = "none") +
+  #   labs(title = "HIV Test counts averaged by SNU3", 
+  #        ylab = "HIV Test Counts", x = "")
 
 
   # Create a slippy map of the facilities
@@ -191,8 +217,8 @@ setwd("~/SouthAfrica/GIS/Shapefile")
 # Save for importing into Geodatabase table
     write.csv(df_PEPFAR, "HIV_Prevalence_long.csv")
     
-    df_subset = df_PEPFAR %>% 
-      filter(prevFlag == 0, priorityFlag == 1, locationFlag == 0, mobileFac == 0)
+    # df_subset = df_PEPFAR %>% 
+    #   filter(prevFlag == 0, priorityFlag == 1, locationFlag == 0, mobileFac == 0)
     write.csv(df_subset, "HIV_Prevalence_long_filtered.csv")
     
     # Compare the numbers for each cut of data to see how many facilities are filitered out
