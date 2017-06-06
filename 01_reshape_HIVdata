@@ -139,20 +139,39 @@ setwd("~/SouthAfrica/GIS/Shapefile")
   df_subset = df_PEPFAR %>% 
     filter(priorityFlag == 1, locationFlag ==0, prevFlag == 0, mobileFac == 0) %>% 
     group_by(SNU1, timeVar) %>% 
-    mutate(prev_dist_qtr = sum(Pos) / sum(Test)) %>% 
+    mutate(prev_SNU1_qtr = sum(Pos) / sum(Test), 
+           facCountSNU1 = n()) %>% 
     ungroup() %>% 
-    mutate(sortVarSNU1 = fct_reorder(SNU1, -prev_dist_qtr)) %>% 
+    mutate(sortVarSNU1 = fct_reorder(SNU1, -prev_SNU1_qtr)) %>% 
     group_by(SNU2) %>% 
     mutate(tot_prev_SNU2 = sum(Pos) / sum(Test)) %>%
     ungroup() %>% 
     mutate(sortVarSNU2 = fct_reorder(SNU2, -tot_prev_SNU2)) %>% 
-    group_by(SNU2, timeVar, sortVarSNU2, sortVarSNU1, prev_dist_qtr) %>% 
-    mutate(quart_prev = sum(Pos) / sum(Test))
+    group_by(SNU2, timeVar) %>% 
+    mutate(prev_SNU2_qtr = sum(Pos) / sum(Test),
+           facCountSNU2 = n())
+  
+  # Check how the number of facilities varies aross time
+  df_subset %>% 
+    group_by(SNU1) %>% 
+    mutate(facCount = n()) %>% 
+    ungroup() %>% 
+    group_by(SNU1, timeVar, facCount) %>% 
+    summarize(n = n(), totsize = sum(Test)) %>% 
+    ungroup() %>% 
+    mutate(sortOrd = fct_reorder(factor(SNU1), -facCount))%>% 
+    ggplot(., aes(x = timeVar, y = n, colour = sortOrd)) +
+    geom_line() +
+    geom_point(aes(size = totsize)) +
+    facet_wrap(~sortOrd, nrow = 2) +
+    theme_minimal() +
+    theme(legend.position = "none")
+    
   
   # Show differences from SNU1 average prevalence by SNU2, sort the values as well  
-  ggplot(df_subset, aes(x = timeVar, y = quart_prev, colour = factor(SNU1))) +
+  ggplot(df_subset, aes(x = timeVar, y = prev_SNU2_qtr, colour = factor(SNU1))) +
       geom_line() + scale_color_brewer(palette = "Set2")+
-      geom_line(aes(x = timeVar, y = prev_dist_qtr), colour = "gray", size = 1.25, alpha = 0.5) +
+      geom_line(aes(x = timeVar, y = prev_SNU1_qtr), colour = "gray", size = 1.25, alpha = 0.5) +
       geom_point(aes(fill = SNU1)) +
       facet_wrap(sortVarSNU1 ~ sortVarSNU2, nrow = 3) +
       theme_minimal() +
@@ -161,21 +180,14 @@ setwd("~/SouthAfrica/GIS/Shapefile")
             axis.text.x = element_text(size = 6)) +
       labs(title = "Gauteng Province has some of the highest HIV Prevalence rates across PEPFAR locations", 
            subtitle = "Gray line indicates district average by quarter", 
-           ylab = "HIV Test Counts", x = "") +
+           y = "", x = "") +
     scale_y_continuous(labels = scales::percent)
-    
-
-    
-    
     
     # spread(timeVar, mean_qp) %>% 
     # select(-mean_tp, everything()) %>% 
     # arrange(-mean_tp) %>% 
     # kable(format.args = list(big.mark = ","), digits = 3)
-   
  
-
-
   # What explains the drastic drop in prevalence rates?
   # df_PEPFAR %>% 
   #   filter(priorityFlag == 1, prevFlag == 0, mobileFac == 0) %>% 
@@ -227,34 +239,5 @@ setwd("~/SouthAfrica/GIS/Shapefile")
 
 
 
-# 
-# 
-# # Read in dbf portion of shapefile
-#   df <- read.dbf("HIV_Prevalence_2016.dbf")
-#   df2 = df %>% rename(`Y2016_1` = PrevQ12016, 
-#                       `Y2016_2` = PrevQ22016,
-#                       `Y2016_3` = PrevQ32016,
-#                       `Y2016_4` = PrevQ42016)
-#   write.csv(df2, "HIV_Prevalence_2016_rename.csv")
-# 
-# # Reshape the data long using the prevalence columns as the reshape point
-#   df_esri = df %>% rename(`10/01/2015` = PrevQ12016, 
-#                           `01/01/2016` = PrevQ22016,
-#                           `04/01/2016` = PrevQ32016,
-#                           `07/01/2016` = PrevQ42016) %>% 
-#     select(OU:Facility, `01/01/2016`:`04/01/2016`) %>% 
-#     gather(`01/01/2016`:`04/01/2016`,
-#            key = quarter,
-#            value = incidence)
-# 
-#   df_esri$quarter <- as.Date(df_esri$quarter, format="%m/%d/%Y")
-# 
-# # Create a group id time variable for each quarter
-#   i <- as.data.frame(group_indices(df_esri, quarter))
-#   i = i %>% rename(time_id = `group_indices(df_esri, quarter)`)
-#   df_esri <- bind_cols(df_esri, i)
-# 
-# # Save the data as a .dbf -- you have to change all the other shapefile names as well  
-#   write.dbf(df_esri, "HIV_Prevalence_2016_long.dbf")
-#   write.csv(df_esri, "HIV_Prevalence_2016_ts.csv")
+
 
