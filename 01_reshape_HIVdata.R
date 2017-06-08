@@ -12,7 +12,6 @@
 #
 # -------------------------------------------------------------------------
 
-
 # Load required libraries
 library(tidyverse)
 library(foreign)
@@ -25,99 +24,109 @@ library(knitr)
 
 setwd("~/SouthAfrica/GIS/Shapefile")
 
-  df_fc16 <- read.dbf("Facility_Clinical_Cascade_2016.dbf")
-  df_fc17 <- read.dbf("Facility_Clinical_Cascade_2017.dbf")
-  df_latlon <- read.csv("Facility_corrected_latlon.csv") %>% 
-    na.omit()
-  
-  # Data frame to filter out excess clinics that are not priority ones
-  df_muni <- read_excel("Priority_districts_filter.xlsx") %>% 
-    rename(SNU2 = `Organisation unit`)
-  
-  # Check for differences in columns between dataframes
-  names(df_fc16)
-  names(df_fc17)
-  # names(df[,order(colnames(df))])
-  
-  
-  #Rename to make reshaping easier
-  df1 = df_fc16 %>%  
-    rename(TXCurQ22016 = TX_CurQ216,
-           TXCurQ42016 = TX_CurQ416,
-           TXNewQ12016 = TX_NewQ116,
-           TXNewQ22016 = TX_NewQ216,
-           TXNewQ32016 = TX_NewQ316,
-           TXNewQ42016 = TX_NewQ416)
+df_fc16 <- read.dbf("Facility_Clinical_Cascade_2016.dbf")
+df_fc17 <- read.dbf("Facility_Clinical_Cascade_2017.dbf")
+df_latlon <- read.csv("Facility_corrected_latlon.csv") %>% 
+  na.omit()
 
-  # Insert a stub before the first Q (indicating to fiscal quarter) allow splitting in reshape
-  colnames(df1) <- gsub('Q', '_Q', colnames(df1))
+# Data frame to filter out excess clinics that are not priority ones
+df_muni <- read_excel("Priority_districts_filter.xlsx") %>% 
+  rename(SNU2 = `Organisation unit`)
+
+# Check for differences in columns between dataframes
+names(df_fc16)
+names(df_fc17)
+# names(df[,order(colnames(df))])
+
+
+#Rename to make reshaping easier
+df1 = df_fc16 %>%  
+  rename(TXCurQ22016 = TX_CurQ216,
+         TXCurQ42016 = TX_CurQ416,
+         TXNewQ12016 = TX_NewQ116,
+         TXNewQ22016 = TX_NewQ216,
+         TXNewQ32016 = TX_NewQ316,
+         TXNewQ42016 = TX_NewQ416)
+
+# Insert a stub before the first Q (indicating to fiscal quarter) allow splitting in reshape
+colnames(df1) <- gsub('Q', '_Q', colnames(df1))
+
+# Reshaping to get a long data frame for ArcMap Geodatabase table
+df1_long = df1 %>% 
+  gather(Test_Q12016:Link_Q42016, key = indicator, value = value) %>% 
+  extract(indicator, into = c("indic", "time"), regex = "([[:alnum:]]+)_([[:alnum:]]+)") %>% 
+  #na.omit() %>% 
   
-  # Reshaping to get a long data frame for ArcMap Geodatabase table
-  df1_long = df1 %>% 
-    gather(Test_Q12016:Link_Q42016, key = indicator, value = value) %>% 
-    extract(indicator, into = c("indic", "time"), regex = "([[:alnum:]]+)_([[:alnum:]]+)") %>% 
-    #na.omit() %>% 
-    
-    # Create two new variables to capture time dimension (FY Quarter and Year)
-    mutate(year = stri_sub(time, -4, -1),
-           quarter = stri_sub(time, 1, 2)) %>%
-    spread(indic, value)
+  # Create two new variables to capture time dimension (FY Quarter and Year)
+  mutate(year = stri_sub(time, -4, -1),
+         quarter = stri_sub(time, 1, 2)) %>%
+  spread(indic, value)
 
 
 # --- FY 2017 Data --- 
 
-  # Similar routine on the fy2017 data, dropping redudancies from fY2016 data
-  df2 = df_fc17 %>% 
-    rename( TXNewQ12017 = TX_NewQ117,
-            TXNewQ22017 = TX_NewQ217,
-            TXCurQ22017 = TX_CurQ217,
-            PrevQ12017  = PrevQ12016,
-            PrevQ22017  = PrevQ22016)
-  
-  colnames(df2) <- gsub('Q', '_Q', colnames(df2))
+# Similar routine on the fy2017 data, dropping redudancies from fY2016 data
+df2 = df_fc17 %>% 
+  rename( TXNewQ12017 = TX_NewQ117,
+          TXNewQ22017 = TX_NewQ217,
+          TXCurQ22017 = TX_CurQ217,
+          PrevQ12017  = PrevQ12016,
+          PrevQ22017  = PrevQ22016)
 
-  # Reshape per above 
-  df2_long = df2 %>% 
-    gather(Test_Q12017:Link_Q22017, key = indicator, value = value) %>% 
-    extract(indicator, into = c("indic", "time"), regex = "([[:alnum:]]+)_([[:alnum:]]+)") %>%
-    #na.omit() %>% 
-    
-    mutate(year = stri_sub(time, -4, -1), quarter = stri_sub(time, 1, 2)) %>% 
-    spread(indic, value)
+colnames(df2) <- gsub('Q', '_Q', colnames(df2))
 
-  # Check the two dataframes for variable overlap
-  setdiff(names(df1_long), names(df2_long))
-  intersect(names(df1_long), names(df2_long))
+# Reshape per above 
+df2_long = df2 %>% 
+  gather(Test_Q12017:Link_Q22017, key = indicator, value = value) %>% 
+  extract(indicator, into = c("indic", "time"), regex = "([[:alnum:]]+)_([[:alnum:]]+)") %>%
+  #na.omit() %>% 
+  
+  mutate(year = stri_sub(time, -4, -1), quarter = stri_sub(time, 1, 2)) %>% 
+  spread(indic, value)
 
-  # Join the two dataframes together in a row bind operation
-  df_PEPFAR = bind_rows(df1_long, df2_long)
+# Check the two dataframes for variable overlap
+setdiff(names(df1_long), names(df2_long))
+intersect(names(df1_long), names(df2_long))
+
+# Join the two dataframes together in a row bind operation
+df_PEPFAR = bind_rows(df1_long, df2_long)
+
+df_PEPFAR = df_PEPFAR %>% 
+  mutate(timeVar = ifelse(time == "Q12016", "10/01/2015", 
+                          ifelse(time == "Q22016", "01/01/2016", 
+                                 ifelse(time == "Q32016", "04/01/2016",
+                                        ifelse(time == "Q42016", "07/01/2016",
+                                               ifelse(time == "Q12017", "10/01/2016", "01/01/2017"))))),
+         prevFlag = ifelse(Prev > 100, 1, 0),
+         priorityFlag = ifelse(SNU2 %in% df_muni$SNU2, 1, 0),
+         mobileFac = ifelse(Facility %like% "Mobile", 1, 0), 
+         locationFlag = ifelse(Longitude == 0, 1, 0))
+
+# Convert timeVar to a date,  type so ESRI reads it correctly
+df_PEPFAR$timeVar <- as.Date(df_PEPFAR$timeVar, format="%m/%d/%Y")
   
-  df_PEPFAR = df_PEPFAR %>% 
-    mutate(timeVar = ifelse(time == "Q12016", "10/01/2015", 
-                            ifelse(time == "Q22016", "01/01/2016", 
-                                   ifelse(time == "Q32016", "04/01/2016",
-                                          ifelse(time == "Q42016", "07/01/2016",
-                                                 ifelse(time == "Q12017", "10/01/2016", "01/01/2017"))))),
-           prevFlag = ifelse(Prev > 100, 1, 0),
-           priorityFlag = ifelse(SNU2 %in% df_muni$SNU2, 1, 0),
-           mobileFac = ifelse(Facility %like% "Mobile", 1, 0), 
-           locationFlag = ifelse(Longitude == 0, 1, 0))
-  
-  # Convert timeVar to a date,  type so ESRI reads it correctly
-  df_PEPFAR$timeVar <- as.Date(df_PEPFAR$timeVar, format="%m/%d/%Y")
-  
-  # Fix facility locations that have improper latitude and longitude coordinates
-  df_PEPFAR = df_PEPFAR %>% 
-    mutate(Latitude = ifelse(Facility %in% df_latlon$Facility, df_latlon$Latitude, Latitude),
-           Longitude = ifelse(Facility %in% df_latlon$Facility, df_latlon$Longitude, Longitude))
-  
+  #Fix facility locations that have improper latitude and longitude coordinates
+  df_latlon_sub <- select(df_latlon, Facility, Latitude, Longitude) %>%
+    rename(Facility_y = Facility,
+           Latitude_y = Latitude,
+           Longitude_y = Longitude)
+
+  df_PEPFAR = df_PEPFAR %>%
+      left_join(df_latlon_sub, c("Facility" = "Facility_y")) %>%
+      mutate(Latitude = ifelse(is.na(Latitude_y), Latitude, Latitude_y),
+             Longitude = ifelse(is.na(Longitude_y), Longitude, Longitude_y)) 
+
   # Verify that the priority facility flag is accurate
   df_PEPFAR %>% 
     filter(priorityFlag == 1) %>%
     group_by(SNU1, SNU2) %>% 
     summarise(n = n())
   
-  # Facility roster
+  # Facility roster --> assuming that the Facility name is distinct
+ df_PEPFAR %>% group_by(timeVar) %>% 
+   count(Facility) %>% 
+   filter(n >1)
+  
   facilities = df_PEPFAR %>% 
     filter(prevFlag == 0, priorityFlag == 1) %>% 
     distinct(Facility, Latitude, Longitude)
@@ -239,5 +248,34 @@ setwd("~/SouthAfrica/GIS/Shapefile")
 
 
 
-
+# 
+# 
+# # Read in dbf portion of shapefile
+#   df <- read.dbf("HIV_Prevalence_2016.dbf")
+#   df2 = df %>% rename(`Y2016_1` = PrevQ12016, 
+#                       `Y2016_2` = PrevQ22016,
+#                       `Y2016_3` = PrevQ32016,
+#                       `Y2016_4` = PrevQ42016)
+#   write.csv(df2, "HIV_Prevalence_2016_rename.csv")
+# 
+# # Reshape the data long using the prevalence columns as the reshape point
+#   df_esri = df %>% rename(`10/01/2015` = PrevQ12016, 
+#                           `01/01/2016` = PrevQ22016,
+#                           `04/01/2016` = PrevQ32016,
+#                           `07/01/2016` = PrevQ42016) %>% 
+#     select(OU:Facility, `01/01/2016`:`04/01/2016`) %>% 
+#     gather(`01/01/2016`:`04/01/2016`,
+#            key = quarter,
+#            value = incidence)
+# 
+#   df_esri$quarter <- as.Date(df_esri$quarter, format="%m/%d/%Y")
+# 
+# # Create a group id time variable for each quarter
+#   i <- as.data.frame(group_indices(df_esri, quarter))
+#   i = i %>% rename(time_id = `group_indices(df_esri, quarter)`)
+#   df_esri <- bind_cols(df_esri, i)
+# 
+# # Save the data as a .dbf -- you have to change all the other shapefile names as well  
+#   write.dbf(df_esri, "HIV_Prevalence_2016_long.dbf")
+#   write.csv(df_esri, "HIV_Prevalence_2016_ts.csv")
 
