@@ -137,7 +137,7 @@ df_PEPFAR %>% group_by(timeVar) %>%
 
 facilities = df_PEPFAR %>% 
   filter(prevFlag == 0, priorityFlag == 1) %>% 
-  distinct(Facility, Latitude, Longitude)
+  distinct(Facility, SNU1, Latitude, Longitude)
 
 # Check that values make sense
 summary(df_PEPFAR)
@@ -238,6 +238,21 @@ facilities %>%
     tiles = providers$CartoDB.Positron,
     toggleDisplay = TRUE) 
 
+
+# check outliers in maps --------------------------------------------------
+pal = colorFactor('Pastel1', domain = unique(df_PEPFAR$SNU1))
+
+facilities %>% 
+  filter(Longitude!= 0) %>%  
+  leaflet() %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(~Longitude, ~Latitude, 
+                   fillColor = ~pal(SNU1),
+                   stroke = FALSE, radius = 4, fillOpacity = 0.8,
+             popup = ~htmlEscape(SNU1)) %>%
+  addMiniMap(
+    tiles = providers$CartoDB.Positron,
+    toggleDisplay = TRUE) 
 
 
 # Export ------------------------------------------------------------------
