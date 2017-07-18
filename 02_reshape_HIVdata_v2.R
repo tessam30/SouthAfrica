@@ -17,6 +17,10 @@
 # 1. Import prevalence data and swing to long format to isolate quarter/year data
 # 2. Swing back to wide format to have variable value by each separate indicator, 
 # e.g. HIV negative tests, HIV positive tests, positivity rate, etc.
+# 3. ID weird vars, priority facilities, mobile clinics
+# 4. Check that numbers make sense
+# 5. Calculate avgs at the SNU1 and SN2 level
+# 6. Export filtered and non-filtered data for use in ArcMap.
 
 
 # setup -------------------------------------------------------------------
@@ -236,6 +240,8 @@ facilities %>%
 
 
 
+# Export ------------------------------------------------------------------
+
 # Save for importing into Geodatabase table
 write.csv(df_PEPFAR, "HIV_Prevalence_long_2017-07-18.csv")
 
@@ -246,4 +252,12 @@ write.csv(df_subset, "HIV_Prevalence_long_filtered_2017-07-18.csv")
 # Compare the numbers for each cut of data to see how many facilities are filitered out
 table(df_subset$SNU1, df_subset$timeVar)
 table(df_PEPFAR$SNU1, df_PEPFAR$timeVar)
+
+
+# outliers ----------------------------------------------------------------
+
+write.csv(df_PEPFAR %>% filter(prevFlag == 1 | testedFlag == 1) %>% 
+            select_('Facility', 'SNU1', 'SNU2', 'SNU3', 'quarter', 'year', 'timeVar', 
+                   pos_var, neg_var, tested_var, prev_var), 
+          "HIV_Prevalence_outliers_2017-07-18.csv")
 
