@@ -18,9 +18,10 @@
 # 2. Swing back to wide format to have variable value by each separate indicator, 
 # e.g. HIV negative tests, HIV positive tests, positivity rate, etc.
 # 3. ID weird vars, priority facilities, mobile clinics
-# 4. Check that numbers make sense
-# 5. Calculate avgs at the SNU1 and SN2 level
-# 6. Export filtered and non-filtered data for use in ArcMap.
+# 4. Fix facilities w/ known geographic coordinate errors
+# 5. Check that numbers make sense
+# 6. Calculate avgs at the SNU1 and SN2 level
+# 7. Export filtered and non-filtered data for use in ArcMap.
 
 
 # setup -------------------------------------------------------------------
@@ -112,6 +113,8 @@ df_PEPFAR = df %>%
     
   
 
+# Fix facility locations --------------------------------------------------
+
 
 # Fix facility locations that have improper latitude and longitude coordinates
 df_latlon_sub <- select(df_latlon, Facility, Latitude, Longitude) %>%
@@ -123,6 +126,9 @@ df_PEPFAR = df_PEPFAR %>%
   left_join(df_latlon_sub, c("Facility" = "Facility_y")) %>%
   mutate(Latitude = ifelse(is.na(Latitude_y), Latitude, Latitude_y),
          Longitude = ifelse(is.na(Longitude_y), Longitude, Longitude_y)) 
+
+
+# checks ------------------------------------------------------------------
 
 # Verify that the priority facility flag is accurate
 df_PEPFAR %>% 
@@ -146,6 +152,10 @@ summary(df_PEPFAR)
 df_PEPFAR %>% 
   filter(prevFlag == 1) %>% 
   select_('Facility', 'SNU1', 'SNU2', 'timeVar', prev_var) 
+
+
+
+# PLOTS -------------------------------------------------------------------
 
 
 # Look at SNU2 averages by quarter over time
