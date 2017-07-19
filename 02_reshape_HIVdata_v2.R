@@ -41,7 +41,7 @@ library(lubridate)
 # where csvs are located
 base_dir = "~/Documents/GitHub/SouthAfrica/"
 # where prevalence data is located
-geo_dir = "~/Documents/South Africa/shp/"
+geo_dir = "~/Documents/GitHub/SouthAfrica/shp/"
 
 # start month for each quarter's data reporting
 # Q12017 is actually 10-10-2016 to 12-31-2016, for instance. 
@@ -53,6 +53,17 @@ prev_var = "PosRat"
 pos_var = "HTSPos" # number tested positive
 neg_var = "HTSNeg" # number tested negative
 tested_var = "HTSTst" # total number tested
+
+# function to calculate positivity rate
+calc_pos = function(pos_var, tested_var) {
+  sum(pos_var) / sum(tested_var)
+}
+
+# calculate positivity within a mutate_ or summarise_ function which uses a stringed variable name
+# e.g. df %>% mutate_(calc_pos_('pos', 'tested'))
+calc_pos_ = function (pos_var, tested_var) {
+  paste0('calc_pos(', pos_var, ',', tested_var, ')')
+}
 
 # import data -------------------------------------------------------------
 
@@ -153,30 +164,28 @@ df_PEPFAR %>%
   filter(prevFlag == 1) %>% 
   select_('Facility', 'SNU1', 'SNU2', 'timeVar', prev_var) 
 
+# subset only the valid observations
 
+df_subset = df_PEPFAR %>%
+  filter(prevFlag == 0, priorityFlag == 1, locationFlag == 0, mobileFac == 0, testedFlag == 0)
 
 # PLOTS -------------------------------------------------------------------
 
-
 # Look at SNU2 averages by quarter over time
-df_snu2 = df_PEPFAR %>% 
-  filter(priorityFlag == 1, locationFlag == 0, prevFlag == 0, mobileFac == 0) %>% 
+df_snu2 = df_subset %>% 
   group_by(SNU1, timeVar) %>% 
-  mutate_(prev_SNU1_qtr = paste0('sum(', pos_var, ') / sum(', tested_var, ')'), 
+  mutate_(tot_SNU1_qtr = calc_pos_(pos_var, tested_var), 
          facCountSNU1 = 'n()') %>% 
   ungroup() %>% 
-  mutate(sortVarSNU1 = fct_reorder(SNU1, -prev_SNU1_qtr)) %>% 
+  mutate(sortVarSNU1 = fct_reorder(SNU1, -tot_SNU1_qtr)) %>% 
   group_by(SNU2) %>% 
-  mutate_(tot_prev_SNU2 = paste0('sum(', pos_var, ') / sum(', tested_var, ')')) %>%
+  mutate_(tot_tot_SNU2 = calc_pos_(pos_var, tested_var)) %>%
   ungroup() %>% 
-  mutate(sortVarSNU2 = fct_reorder(SNU2, -tot_prev_SNU2)) %>% 
+  mutate(sortVarSNU2 = fct_reorder(SNU2, -tot_tot_SNU2)) %>% 
   group_by(SNU2, timeVar) %>% 
-  mutate_(prev_SNU2_qtr = paste0('sum(', pos_var, ') / sum(', tested_var, ')'),
+  mutate_(tot_SNU2_qtr = calc_pos_(pos_var, tested_var),
          facCountSNU2 = 'n()')
 
-calc_pos = function(pos_var, tested_var) {
-  sum(pos_var) / sum(tested_var)
-}
 
 # Check how the number of facilities varies aross time
 df_snu2 %>% 
@@ -196,27 +205,47 @@ df_snu2 %>%
 
 
 # Show differences from SNU1 average prevalence by SNU2, sort the values as well  
-ggplot(df_snu2, aes(x = timeVar, y = prev_SNU2_qtr, colour = factor(SNU1))) +
+ggplot(df_snu2, aes(x = timeVar, y = tot_SNU2_qtr, colour = factor(SNU1))) +
   geom_line() + scale_color_brewer(palette = "Set2")+
-  geom_line(aes(x = timeVar, y = prev_SNU1_qtr), colour = "gray", size = 1.25, alpha = 0.5) +
-  geom_point(aes(fill = SNU1)) +
+  geom_line(aes(x = timeVar, y = tot_SNU1_qtr), colour = "gray", size = 1.25, alpha = 0.5) +
+  geom_point() +
   facet_wrap(sortVarSNU1 ~ sortVarSNU2, nrow = 3) +
   theme_minimal() +
   theme(legend.position = "none", 
-        strip.text.x = element_text(size = 7),
+        strip.text.x = element_text(size = 7, hjust = 0),
         axis.text.x = element_text(size = 6)) +
   labs(title = "Gauteng Province has some of the highest HIV Prevalence rates across PEPFAR locations", 
        subtitle = "Gray line indicates district average by quarter", 
        y = "", x = "") +
   scale_y_continuous(labels = scales::percent)
 
+ggsave('SA_SNU2avgs_byquarter.pdf', width = 15, height = 8)
+
+# District (SNU1) average along w/ fitted lines
+
+ggplot(df_snu2, aes(x = timeVar, y = tot_SNU1_qtr, colour = factor(SNU1))) +
+  scale_color_brewer(palette = "Set2") +
+  geom_line(size = 1.25, alpha = 0.5) +
+  geom_smooth(method='lm',formula=y~x, linetype = 2, size = 0.75) +
+  geom_point() + 
+  theme_minimal() +
+  facet_wrap(~sortVarSNU1, nrow = 2) +
+  theme(legend.position = "none", 
+        strip.text.x = element_text(size = 7, hjust = 0),
+        axis.text.x = element_text(size = 6)) +
+  labs(title = "Gauteng Province has seen little decrease in positivity, while Mpumalanga and KZN have decreased", 
+       subtitle = "Dotted line indicates linear fitted line to the trend", 
+       y = "", x = "") +
+  scale_y_continuous(labels = scales::percent)
+
+ggsave('SA_SNU1avgs_byquarter.pdf', width = 9, height = 6)
 
 # Is there still a drastic drop in prevalence rates?
 # Plotting mean positivity at SNU1 and SNU2
 df_PEPFAR %>%
   filter(priorityFlag == 1, prevFlag == 0, mobileFac == 0) %>%
   group_by(SNU1) %>%
-  mutate_(meanSNU1 = paste0('sum(', pos_var, ') / sum(', tested_var, ')')) %>%
+  mutate_(meanSNU1 = calc_pos_(pos_var, tested_var)) %>%
   ungroup() %>%
   mutate(SNU1ord = fct_reorder(SNU1, -meanSNU1)) %>%
   group_by(timeVar, SNU2, SNU1, SNU3, SNU1ord) %>%
@@ -270,8 +299,7 @@ facilities %>%
 # Save for importing into Geodatabase table
 write.csv(df_PEPFAR, "HIV_Prevalence_long_2017-07-18.csv")
 
-df_subset = df_PEPFAR %>%
-  filter(prevFlag == 0, priorityFlag == 1, locationFlag == 0, mobileFac == 0, testedFlag == 0)
+
 write.csv(df_subset, "HIV_Prevalence_long_filtered_2017-07-18.csv")
 
 # Compare the numbers for each cut of data to see how many facilities are filitered out

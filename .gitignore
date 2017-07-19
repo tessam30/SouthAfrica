@@ -1,0 +1,10 @@
+
+.DS_Store
+*.cpg
+*.prj
+*.sbn
+*.dbf
+*.sbx
+*.shp
+*.xml
+*.shx
