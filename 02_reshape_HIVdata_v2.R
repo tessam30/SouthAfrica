@@ -41,7 +41,7 @@ library(lubridate)
 # where csvs are located
 base_dir = "~/Documents/GitHub/SouthAfrica/"
 # where prevalence data is located
-geo_dir = "~/Documents/GitHub/SouthAfrica/shp/"
+geo_dir = "~/Documents/South Africa/shp/"
 
 # start month for each quarter's data reporting
 # Q12017 is actually 10-10-2016 to 12-31-2016, for instance. 
@@ -177,11 +177,11 @@ df_snu2 = df_subset %>%
   mutate_(tot_SNU1_qtr = calc_pos_(pos_var, tested_var), 
          facCountSNU1 = 'n()') %>% 
   ungroup() %>% 
-  mutate(sortVarSNU1 = fct_reorder(SNU1, -tot_SNU1_qtr)) %>% 
+  mutate(sortVarSNU1 = fct_reorder(str_sub(SNU1, start = 4), -tot_SNU1_qtr)) %>% 
   group_by(SNU2) %>% 
   mutate_(tot_tot_SNU2 = calc_pos_(pos_var, tested_var)) %>%
   ungroup() %>% 
-  mutate(sortVarSNU2 = fct_reorder(SNU2, -tot_tot_SNU2)) %>% 
+  mutate(sortVarSNU2 = fct_reorder(str_replace_all(str_replace_all(str_sub(start = 4, SNU2), " District Municipality", ""), " Metropolitan Municipality", ""), -tot_tot_SNU2)) %>% 
   group_by(SNU2, timeVar) %>% 
   mutate_(tot_SNU2_qtr = calc_pos_(pos_var, tested_var),
          facCountSNU2 = 'n()')
