@@ -215,7 +215,7 @@ ggplot(df_snu2, aes(x = timeVar, y = tot_SNU2_qtr, colour = factor(SNU1))) +
         strip.text.x = element_text(size = 7, hjust = 0),
         axis.text.x = element_text(size = 6)) +
   labs(title = "Gauteng Province has some of the highest HIV Prevalence rates across PEPFAR locations", 
-       subtitle = "Gray line indicates district average by quarter", 
+       subtitle = "Gray line indicates province average by quarter", 
        y = "", x = "") +
   scale_y_continuous(labels = scales::percent)
 
