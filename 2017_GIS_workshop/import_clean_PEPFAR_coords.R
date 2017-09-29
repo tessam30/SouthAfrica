@@ -2,6 +2,8 @@ library(tidyverse)
 library(sf)
 library(geocenter)
 library(ggplot2)
+library(stringr)
+library(lubridate)
 
 # import old version of data which contains some errors -------------------
 
@@ -57,15 +59,33 @@ ggplot(df_sampled, aes(x = Longitude, y = Latitude, colour = SNU1)) + geom_point
 ggplot(df_sampled, aes(x = Longitude, y = Latitude, colour = bad_coords)) + geom_point() + coord_equal() + theme_void()
 
 # reshape to long ---------------------------------------------------------
+# # positive people
 df_pos = df_sampled %>% 
   select(-contains('Test')) %>% 
-  gather(qtr_year, pos, contains('Pos')) 
+  gather(qtr_year, pos, contains('Pos')) %>% 
+  mutate(qtr_year = str_replace_all(qtr_year, 'Pos', ''))
 
+# total sampled
 df_tot = df_sampled %>% 
-  gather(qtr_year, pos, contains('Pos'))
+  select(-contains('Pos')) %>% 
+  gather(qtr_year, tested, contains('Test')) %>% 
+  mutate(qtr_year = str_replace_all(qtr_year, 'Test', ''))
 
-# create new id
-%>% mutate(id = row_number())
+
+# join together positive and sampled
+df_long =  full_join(df_pos, df_tot, 
+                     by = c("facility_id", "Facility", "SNU1", "SNU2", "Latitude", "Longitude", "bad_coords", "qtr_year")) %>% 
+  mutate(
+  # create new id
+  id = row_number(),
+  # calculate rate
+  rate = pos/tested,
+  rate_flag = rate > 1,
+  quarter = as.numeric(str_sub(qtr_year, start = 2, end = 2)),
+  year = as.numeric(str_sub(qtr_year, start = 3, end = 6)),
+  # !!! FIX
+  date = ymd(paste(year, quarter, '1', sep = '-')))
+
 
 
 setwd('~/Documents/2017_Workshop_SouthAfrica/output data/')
