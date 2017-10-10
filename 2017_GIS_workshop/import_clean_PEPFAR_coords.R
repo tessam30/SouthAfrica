@@ -4,6 +4,7 @@ library(geocenter)
 library(ggplot2)
 library(stringr)
 library(lubridate)
+library(llamar)
 
 # import old version of data which contains some errors -------------------
 
@@ -14,11 +15,16 @@ df = read_sf('~/Documents/2017_Workshop_SouthAfrica/input data/RSA_Excel_Data.sh
 set.seed(seed = 20170929)
 
 # row numbers of facilities 
-to_keep = c(1184, 933, 1920, 648, 1878, 1613, 325, 1900) + 1 # Arc Map 0-indexed
+to_keep = c(1184, 933, 1920, 648, 1878, 1613, 1373) + 1 # Arc Map 0-indexed
 
-specials = df %>% slice(to_keep) %>% mutate(coord_flag = 1)
 
-df_sampled = df %>% group_by(SNU1) %>% sample_frac(0.25) %>% mutate(coord_flag = 0) %>% filter(Longitude != 0)
+specials = df %>% filter(row_number() %in% to_keep) %>% mutate(coord_flag = 1)
+
+# Screw up one point
+specials = specials %>% 
+  mutate(SNU1 = ifelse(Facility == 'mp Hendrina Clinic', 'lp Limpopo Province', SNU1))
+
+df_sampled = df %>% filter(!row_number() %in% to_keep) %>% group_by(SNU1) %>% sample_frac(0.25) %>% mutate(coord_flag = 0) %>% filter(Longitude != 0)
 
 df_sampled = df_sampled %>% rbind(specials) %>% mutate(facility_id = row_number())
 
@@ -98,7 +104,9 @@ snu2 = df_long %>%
   group_by(SNU1, SNU2, date, year, quarter) %>% 
   summarise(pos = sum(pos),
             tested = sum(tested),
-            num_fac = n()) %>% 
+            num_fac = n(),
+            lat = mean(Latitude),
+            lon = mean(Longitude)) %>% 
   mutate(rate = pos/tested)
 
 snu1 = df_long %>% 
@@ -107,12 +115,20 @@ snu1 = df_long %>%
   group_by(SNU1, date, year, quarter) %>% 
   summarise(pos = sum(pos),
             tested = sum(tested),
-            num_fac = n()) %>% 
+            num_fac = n(),
+            lat = mean(Latitude),
+            lon = mean(Longitude)) %>% 
   mutate(rate = pos/tested)
 
 
 # test graphs (summary) -------------------------------------------------------------
-ggplot(snu2, aes(x = quarter, y = rate)) + 
+ggplot(df_long, aes(x = quarter, y = rate, colour = SNU1, group = Facility)) + 
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  facet_wrap(~SNU2) +
+  scale_y_continuous(limits = c(0, 1))
+
+ggplot(snu2, aes(x = quarter, y = rate, colour = SNU1)) + 
   geom_line() +
   scale_y_continuous(labels = scales::percent) +
   facet_wrap(~SNU2)
@@ -127,8 +143,27 @@ ggplot(snu1 %>% filter(quarter == 1), aes(y = num_fac, x = SNU1, fill = SNU1)) +
   coord_flip() +
   geom_bar(stat = 'identity')
 
+
+ggplot(snu2, aes(x = lon, y = lat, size = pos, fill = rate)) +
+  geom_point(shape = 21) +
+  scale_size_continuous(range = c(1, 15)) +
+  scale_fill_gradientn(colours = RdPu) +
+  coord_equal() +
+  facet_wrap(~quarter) +
+  theme_xygrid()
+
+ggplot(df_long %>% filter(rate_flag == 0, coord_flag == 0), aes(x = Longitude, y = Latitude, size = pos, fill = rate)) +
+  geom_point(shape = 21) +
+  scale_size_continuous(range = c(1, 15)) +
+  scale_fill_gradientn(colours = llamar::magma) +
+  coord_equal() +
+  facet_wrap(~quarter) +
+  theme_xygrid()
+
 # write datasets ----------------------------------------------------------
 
 setwd('~/Documents/2017_Workshop_SouthAfrica/output data/')
 
-write_csv(snu2, '')
+write_csv(df_long, 'RSA_pepfarsample.csv')
+write_csv(snu1, 'RSA_pepfarsample_SNU1.csv')
+write_csv(snu2, 'RSA_pepfarsample_SNU2.csv')
