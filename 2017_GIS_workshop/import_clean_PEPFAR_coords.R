@@ -104,9 +104,7 @@ snu2 = df_long %>%
   group_by(SNU1, SNU2, date, year, quarter) %>% 
   summarise(pos = sum(pos),
             tested = sum(tested),
-            num_fac = n(),
-            lat = mean(Latitude),
-            lon = mean(Longitude)) %>% 
+            num_fac = n()) %>% 
   mutate(rate = pos/tested)
 
 snu1 = df_long %>% 
@@ -115,9 +113,7 @@ snu1 = df_long %>%
   group_by(SNU1, date, year, quarter) %>% 
   summarise(pos = sum(pos),
             tested = sum(tested),
-            num_fac = n(),
-            lat = mean(Latitude),
-            lon = mean(Longitude)) %>% 
+            num_fac = n()) %>% 
   mutate(rate = pos/tested)
 
 
