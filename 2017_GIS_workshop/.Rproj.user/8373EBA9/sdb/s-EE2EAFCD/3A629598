@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "\n# Merge together SNU2 averages with their corresponding shapefile ---------\n\n\n",
+    "created" : 1507722747235.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "751794350",
+    "id" : "3A629598",
+    "lastKnownWriteTime" : 1507728344,
+    "last_content_update" : 1507728344246,
+    "path" : "~/Documents/GitHub/SouthAfrica/2017_GIS_workshop/merge_SNU2.R",
+    "project_path" : "merge_SNU2.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
