@@ -1,14 +1,14 @@
 {
     "collab_server" : "",
-    "contents" : "\n# Merge together SNU2 averages with their corresponding shapefile ---------\n\n\n",
+    "contents" : "\n# Merge together SNU2 averages with their corresponding shapefile ---------\n\n\n# setup -------------------------------------------------------------------\nlibrary(sf)\nlibrary(tidyverse)\nlibrary(dplyr)\nlibrary(stringr)\n\nadm2_dir = '~/Documents/USAID/GISWkshp2017/'\n\n# Import shapefile from gadm ----------------------------------------------\nadm2 = read_sf(paste0(adm2_dir, 'ZAF_adm2.shp'))\n\n\n# Import pre-pivoted SNU2 averages ----------------------------------------\n# from source('import_clean_PEPFAR_coords.R')\n\nsnu2 = read_csv('~/Documents/USAID/GISWkshp2017/RSA_pepfarsample_SNU2.csv') %>% \n  # initially just took avg loc of the facilities for testing purposes.\n  select(-lat, -lon) %>% \n  # create a cleaner version of SNU1, SNU2 name\n  mutate(admin1 = str_replace(str_sub(SNU1, 4), ' Province', ''),\n         admin2 = str_replace(str_sub(SNU2, 4), ' Municipality', ''),\n         admin2 = str_replace(str_replace(admin2, ' Metropolitan', ''),\n                              ' District', ''))\n\n\n# Figure out what to merge ------------------------------------------------\nsnu2_unique = distinct(snu2, admin1, admin2) %>% mutate(rollup = 'rollup')\n\n# test merge\ntest = left_join(snu2_unique, adm2, by = c('admin1' = \"NAME_1\", \"admin2\" = \"NAME_2\"))\n\ntest %>% filter(is.na(rollup) | is.na(NAME_0)) %>% select(admin1, admin2)\n# Mismatches:\n# admin1            admin2\n# <chr>             <chr>\n#   1 KwaZulu-Natal       Harry Gwala\n# 2 KwaZulu-Natal     uMgungundlovu\n# 3    North West Bojanala Platinum\n\n\n# Fix merges --------------------------------------------------------------\n\n\n# Manual fixes based on previous test merges\nsnu2 = snu2 %>% mutate(\n  admin2 = ifelse(admin2 == 'uMgungundlovu', 'Umgungundlovu', admin2),\n  # Based on https://en.wikipedia.org/wiki/KwaZulu-Natal\n  admin2 = ifelse(admin2 == 'Harry Gwala' , 'Sisonke', admin2),\n  admin2 = ifelse(admin2 == 'Bojanala Platinum', 'Bojanala', admin2)\n)\n\n\n# test merge\ntest2 = left_join(snu2, adm2, by = c('admin1' = \"NAME_1\", \"admin2\" = \"NAME_2\"))\n\ntest2 %>% filter(is.na(quarter) | is.na(NAME_0)) %>% select(admin1, admin2)\n\n\nsnu2_map = full_join(snu2, adm2, by = c('admin1' = \"NAME_1\", \"admin2\" = \"NAME_2\"))\n# plot --------------------------------------------------------------------\n\nggplot(snu2_map, aes(fill = pos)) +\n  geom_sf()\n",
     "created" : 1507722747235.000,
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "751794350",
+    "hash" : "1405809986",
     "id" : "3A629598",
-    "lastKnownWriteTime" : 1507728344,
-    "last_content_update" : 1507728344246,
+    "lastKnownWriteTime" : 1507731108,
+    "last_content_update" : 1507731108882,
     "path" : "~/Documents/GitHub/SouthAfrica/2017_GIS_workshop/merge_SNU2.R",
     "project_path" : "merge_SNU2.R",
     "properties" : {
